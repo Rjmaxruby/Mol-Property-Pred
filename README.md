@@ -21,7 +21,7 @@ Hit **Explain** and you additionally get:
 
 - Atom-level saliency map highlighting which parts of the molecule drove each prediction
 - Per-target structural analysis — different targets highlight different atoms
-- A cheminformatics report written by Llama 3.1 identifying the key functional groups, their known toxicological mechanisms, and concrete medicinal chemistry recommendations (bioisosteres, scaffold changes)
+- A cheminformatics report written by Llama 4 Scout identifying the key functional groups, their known toxicological mechanisms, and concrete medicinal chemistry recommendations (bioisosteres, scaffold changes)
 
 **Example — Dasatinib (cancer drug):** flags toxic on NR-AhR (80%), SR-p53 (81%), SR-ATAD5 (78%). The explain module identifies the pyrimidine ring and sulfonamide group as primary structural drivers, consistent with Dasatinib's known multi-target kinase inhibitor profile.
 
