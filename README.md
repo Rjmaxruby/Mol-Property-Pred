@@ -1,10 +1,10 @@
 # Molecular Toxicity Predictor
 
-A deployable AI system that predicts the toxicity of chemical compounds across 12 biological targets simultaneously — from a chemical name or SMILES string, with no lab test required.
+A deployable AI system that predicts the toxicity of chemical compounds across 12 biological targets simultaneously — from a chemical name or SMILES string, with no lab test required. Includes a white-box explainability module that generates per-target structural explanations and a cheminformatics narrative report powered by an LLM.
 
 Built as a portfolio project demonstrating applied ML for real-world scientific problems, directly relevant to pharma and biotech AI/ML roles.
 
-**Live API:** runs locally via FastAPI with an auto-generated interactive docs UI at `/docs`
+**Live API:** runs locally via FastAPI · interactive docs at `/docs`
 
 ---
 
@@ -17,15 +17,21 @@ Enter a chemical name like `caffeine` or a SMILES string like `CN1C=NC2=C1C(=O)N
 - Probability scores and confidence levels per target
 - Model reliability (AUC-ROC) shown per target so you know how much to trust each prediction
 
-**Example output for caffeine:** all 12 targets non-toxic, high confidence across most.
+Hit **Explain** and you additionally get:
 
-**Example output for Dasatinib (cancer drug):** flags as toxic on NR-AhR (0.66), SR-ARE (0.56), SR-p53 (0.60), and SR-HSE (0.50) — consistent with its known activity as a potent multi-target kinase inhibitor.
+- Atom-level saliency map highlighting which parts of the molecule drove each prediction
+- Per-target structural analysis — different targets highlight different atoms
+- A cheminformatics report written by Llama 3.1 identifying the key functional groups, their known toxicological mechanisms, and concrete medicinal chemistry recommendations (bioisosteres, scaffold changes)
+
+**Example — Dasatinib (cancer drug):** flags toxic on NR-AhR (80%), SR-p53 (81%), SR-ATAD5 (78%). The explain module identifies the pyrimidine ring and sulfonamide group as primary structural drivers, consistent with Dasatinib's known multi-target kinase inhibitor profile.
 
 ---
 
 ## Why this matters
 
 Before a drug candidate can be tested on humans, it needs to be screened for toxicity. Running lab assays on thousands of molecules is expensive and slow. This system predicts toxicity from molecular structure alone — potentially flagging dangerous compounds earlier and at a fraction of the cost.
+
+The explainability module closes a critical gap: most ML toxicity models are black boxes. This system tells a medicinal chemist *which part of the molecule* is driving the toxicity signal and *why* — output a chemist can actually act on.
 
 ---
 
@@ -54,55 +60,88 @@ All targets are heavily class-imbalanced (2.9%–16.2% toxic), which is a key ch
 
 ## Model
 
-### Architecture: Multi-Task Graph Neural Network
+### Architecture: Multi-Task Graph Attention Network (GAT)
 
 Molecules are represented as graphs — atoms as nodes, bonds as edges — rather than flat fingerprint vectors. This preserves the actual chemical structure and allows the model to learn from molecular topology directly.
 
 **Node features per atom (6):** element number, degree, formal charge, aromaticity, ring membership, hydrogen count
 
 **Architecture:**
-- 3 × GCNConv layers (128 hidden dims) with dropout — message passing lets each atom aggregate information from its chemical neighbourhood
+- 3 × GATConv layers (128 hidden dims, 4 attention heads) with dropout
 - Global mean pooling — converts per-atom representations into a single molecule vector
 - Shared dense layer (128 → 64) with dropout
 - 12 independent output heads — one per toxicity target
 
 **Training details:**
 - Per-target `pos_weight` to handle class imbalance (range: 5.1× to 33.1× depending on target)
-- Masked loss function — only trains on labels that exist for each molecule (not all molecules were tested on all 12 targets)
-- Early stopping (patience=10, evaluated every 5 epochs) — best checkpoint saved at epoch 295
+- Masked loss — only trains on labels that exist for each molecule
+- Early stopping (patience=10, evaluated every 5 epochs)
 - Adam optimizer, lr=0.001
 
-### Comparison: Baseline vs GNN
+### Baseline comparison
 
 | Model | Mean AUC-ROC | Notes |
 |---|---|---|
 | Random Forest (ECFP fingerprints) | 0.7535 | Fast, interpretable via SHAP |
 | XGBoost (ECFP fingerprints) | 0.6965 | Underperformed on sparse binary data |
-| **Multi-Task GNN** | **0.7967** | Best overall |
+| **Multi-Task GAT (final)** | **0.8284** | Best overall |
 
-**Why XGBoost underperformed:** its sequential boosting strategy struggles with high-dimensional sparse binary inputs (2048 mostly-zero fingerprint bits). Random Forest's independent averaging handles this format better — consistent with published benchmarks on fingerprint-based molecular ML.
+The upgrade from GCNConv to GATConv (4 attention heads) improved mean AUC from 0.7967 → 0.8284. Attention heads allow the model to weight neighbour atoms differently rather than averaging uniformly, which better captures the relevance of specific chemical environments.
 
-### Per-target results (Multi-Task GNN)
+**Why XGBoost underperformed:** sequential boosting struggles with high-dimensional sparse binary inputs (2048 mostly-zero fingerprint bits). Random Forest's independent averaging handles this format better — consistent with published benchmarks.
+
+### Per-target results (Multi-Task GAT)
 
 | Target | AUC-ROC |
 |---|---|
-| NR-AR | 0.7887 |
-| NR-AR-LBD | 0.8379 |
-| NR-AhR | 0.8344 |
-| NR-Aromatase | 0.7862 |
-| NR-ER | 0.6608 ⚠️ |
-| NR-ER-LBD | 0.7596 |
-| NR-PPAR-gamma | 0.7906 |
-| SR-ARE | 0.7845 |
-| SR-ATAD5 | 0.8483 |
-| SR-HSE | 0.7592 |
-| SR-MMP | 0.8776 |
-| SR-p53 | 0.8328 |
-| **Mean** | **0.7967** |
+| NR-AR | 0.7739 |
+| NR-AR-LBD | 0.8914 |
+| NR-AhR | 0.8587 |
+| NR-Aromatase | 0.8542 |
+| NR-ER | 0.6714 ⚠️ |
+| NR-ER-LBD | 0.7355 |
+| NR-PPAR-gamma | 0.8824 |
+| SR-ARE | 0.8242 |
+| SR-ATAD5 | 0.8695 |
+| SR-HSE | 0.8212 |
+| SR-MMP | 0.9108 |
+| SR-p53 | 0.8475 |
+| **Mean** | **0.8284** |
 
-⚠️ NR-ER (Estrogen Receptor) is the weakest target at 0.66 AUC. This is consistent with published literature — estrogen receptor biology is notably complex, and NR-ER is a known difficult benchmark in cheminformatics. The API flags this explicitly in its response.
+⚠️ NR-ER (Estrogen Receptor) is the weakest target at 0.67 AUC. This is consistent with published literature — estrogen receptor biology is notably complex and NR-ER is a known difficult benchmark in cheminformatics. The API flags this explicitly in every response.
 
-Published multi-task Tox21 benchmarks typically report 0.80–0.84 mean AUC with more complex architectures. Our result of 0.7967 is competitive given the lightweight model design.
+Published multi-task Tox21 benchmarks typically report 0.80–0.84 mean AUC with more complex architectures. Our result of 0.8284 is competitive and sits at the upper end of that range.
+
+---
+
+## White-box Explainability
+
+The `/explain` endpoint provides per-target structural explanations using **Gradient × Input saliency** — a more causally grounded method than attention weights.
+
+### How it works
+
+For each flagged target:
+1. A backward pass through the GAT computes gradients of that target's predicted probability with respect to node features
+2. `saliency = |gradient × input|` summed across feature dimensions gives one importance score per atom
+3. Top-N atoms are matched against a SMARTS functional group library (~35 named groups: sulfonamides, nitro groups, aryl halides, ring systems, toxicophores, etc.)
+4. All findings are batched into a single Groq API call → Llama 3.1 writes a structured cheminformatics report
+
+### Why Gradient × Input rather than attention?
+
+GAT attention weights indicate *where the model looked* during message passing, but attention ≠ importance in a causal sense. Gradient × Input is a published saliency method that directly measures how much each atom feature influences the output score — a more defensible signal for scientific reporting.
+
+### Example output for Dasatinib
+
+```
+NR-AR-LBD (52.6%): aromatic nitrogen [saliency 1.40], sulfonamide (-SO₂NH₂) [0.76]
+NR-AhR    (80.4%): aromatic nitrogen [0.54], benzene ring [0.46]
+SR-p53    (81.0%): aromatic nitrogen [0.41], benzene ring [0.35]
+```
+
+Note how SR-p53 and NR-AR-LBD highlight *different* atoms despite being the same molecule — SR-p53 focuses on the pyrimidine linker while NR-AR-LBD additionally implicates the sulfonamide group.
+
+The LLM narrative then explains the mechanisms:
+> *"The pyrimidine ring receives highest attention across SR-p53, NR-AhR, and SR-ATAD5. Pyrimidine-containing scaffolds are well-documented AhR ligands... The sulfonamide group (-SO₂NH₂) is additionally flagged for NR-AR-LBD — sulfonamides are known to interact with androgen receptor binding domains... Recommendation: consider replacing the sulfonamide with a methylsulfone bioisostere (-SO₂CH₃) to reduce AR-LBD binding while preserving the pharmacophore."*
 
 ---
 
@@ -112,23 +151,6 @@ Built with FastAPI. Run locally and explore at `http://localhost:8000/docs`.
 
 ### `POST /predict`
 
-**Request:**
-```json
-{
-  "input": "caffeine",
-  "input_type": "name"
-}
-```
-
-Or with a SMILES string:
-```json
-{
-  "input": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
-  "input_type": "smiles"
-}
-```
-
-Or let the system auto-detect:
 ```json
 {
   "input": "caffeine",
@@ -136,29 +158,43 @@ Or let the system auto-detect:
 }
 ```
 
+`input_type`: `"auto"` | `"name"` | `"smiles"`
+
+**Response includes:** `resolved_smiles`, `molecule_image` (base64 PNG), `num_atoms`, `num_bonds`, `predictions` (per-target: probability, toxic, confidence, description, model AUC), `note`
+
+### `POST /explain`
+
+```json
+{
+  "input": "dasatinib",
+  "input_type": "name",
+  "top_n_atoms": 6
+}
+```
+
 **Response includes:**
-- `resolved_smiles` — the SMILES string used (useful when input was a name)
-- `molecule_image` — base64-encoded PNG of the 2D molecular structure
-- `num_atoms`, `num_bonds`
-- `predictions` — per-target: probability, toxic (bool), confidence (low/medium/high), description, model AUC
-- `note` — honest caveat about NR-ER reliability
+- `highlighted_molecule_image` — molecule with top saliency atoms highlighted in amber
+- `atom_saliency_scores` — per-atom importance scores (merged max across all targets)
+- `explanations` — per-target: probability, top saliency atoms, matched functional groups with scores
+- `all_functional_groups` — full SMARTS inventory of detected groups
+- `narrative` — LLM-generated cheminformatics report
+- `method_note` — honest description of the explainability method and its limitations
 
 ### `GET /health`
+
 ```json
-{"status": "ok", "model": "MultiTaskGNN", "targets": 12}
+{"status": "ok", "model": "Tox21GAT", "targets": 12}
 ```
 
 ---
 
 ## Input handling
 
-The system accepts both chemical names and SMILES strings:
-
-- **Chemical name** (`"caffeine"`, `"aspirin"`) → PubChem lookup → SMILES → RDKit validation → prediction
+- **Chemical name** (`"caffeine"`) → PubChem lookup → SMILES → RDKit validation → prediction
 - **SMILES string** → RDKit validation → prediction
-- **Auto-detect** → if input contains chemistry characters (`=`, `#`, `@`, etc.) or starts with uppercase, treated as SMILES; otherwise looked up by name
+- **Auto-detect** → tries SMILES parse first; falls back to PubChem name lookup
 
-Invalid SMILES or unknown names return a clear HTTP 400/404 error rather than a silent failure.
+Invalid SMILES or unknown names return clear HTTP 400/404 errors rather than silent failures.
 
 ---
 
@@ -166,12 +202,38 @@ Invalid SMILES or unknown names return a clear HTTP 400/404 error rather than a 
 
 ```
 mol-property-pred/
-├── 01_eda.ipynb              # EDA, fingerprint generation, Random Forest + XGBoost baseline, SHAP
-├── 04_multitask_gnn.ipynb    # Multi-task GNN: graph construction, architecture, training
-├── app.py                    # FastAPI prediction API
-├── best_multitask_gnn.pt     # Saved GNN weights (best checkpoint)
-├── results.json              # Per-target AUC results
-├── tox21.csv                 # Local copy of Tox21 dataset
+├── app.py                        # FastAPI app — /predict, /explain, /health
+├── schemas.py                    # Pydantic request models
+├── config.py                     # Environment config (model path, device, API keys)
+│
+├── models/
+│   ├── gat.py                    # Tox21GAT architecture + gradient saliency
+│   └── predictor.py              # Model loading + inference wrapper
+│
+├── chemistry/
+│   ├── functional_groups.py      # SMARTS library (~35 named groups)
+│   ├── rdkit_utils.py            # Graph construction, molecule imaging
+│   ├── input_processor.py        # Name/SMILES resolution
+│   └── resolver.py               # PubChem lookup
+│
+├── explainability/
+│   ├── attention.py              # Attention aggregation utilities
+│   └── report_builder.py        # Saliency → explanations → /explain response
+│
+├── LLM/
+│   ├── client.py                 # Groq API client
+│   ├── prompts.py                # Cheminformatics report prompt
+│   └── report.py                 # Prompt → narrative pipeline
+│
+├── static/
+│   └── index.html                # Dark-themed frontend
+│
+├── saved_models/
+│   └── best_multitask_gnn.pt     # Trained GAT weights (0.8284 mean AUC)
+│
+├── 04_multitask_gnn.ipynb        # Model training notebook
+├── results.json                  # Per-target AUC results
+├── tox21.csv                     # Tox21 dataset
 └── requirements.txt
 ```
 
@@ -186,20 +248,28 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 # source venv/bin/activate   # Mac/Linux
 pip install -r requirements.txt
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Open `http://localhost:8000/docs` to explore the API interactively.
+Add a `.env` file in the project root:
+```
+GROQ_API_KEY=your_groq_key_here
+```
 
-To retrain the model, open `04_multitask_gnn.ipynb` and run all cells. Training takes approximately 30–40 minutes on CPU (345 epochs with early stopping).
-
-# Terminal 1 — start the API
+Then start the server:
+```bash
+# Terminal 1 — API
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2 — serve the frontend
-python -m http.server 8080
+# Terminal 2 — frontend
+python -m http.server 8080 --directory static
+```
+
+Open `http://localhost:8080` for the UI or `http://localhost:8000/docs` for the interactive API explorer.
+
+To retrain the model, open `04_multitask_gnn.ipynb` and run all cells. Training takes ~30–40 minutes on CPU.
+
 ---
 
 ## Stack
 
-Python · PyTorch · PyTorch Geometric · RDKit · scikit-learn · XGBoost · SHAP · FastAPI · PubChemPy · pandas · matplotlib
+Python · PyTorch · PyTorch Geometric · RDKit · scikit-learn · XGBoost · SHAP · FastAPI · Groq (Llama 3.1) · PubChemPy · pandas · matplotlib
