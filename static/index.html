@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Molecular Toxicity Predictor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #21262d;
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --accent: #58a6ff;
+      --toxic: #f85149;
+      --safe: #3fb950;
+      --warn: #d29922;
+      --low-conf: #484f58;
+      --explain: #bc8cff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-weight: 400;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      max-width: 900px;
+      margin: 0 auto 2.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    header h1 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.3rem;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .input-row input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem;
+      padding: 0.65rem 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input-row input:focus {
+      border-color: var(--accent);
+    }
+
+    .input-row input::placeholder {
+      color: var(--muted);
+    }
+
+    .input-row select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 0.85rem;
+      padding: 0.65rem 0.75rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #0d1117;
+      cursor: pointer;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.65rem 1.4rem;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #explainBtn {
+      background: transparent;
+      border: 1px solid var(--explain);
+      color: var(--explain);
+    }
+
+    #explainBtn:hover {
+      background: rgba(188, 140, 255, 0.08);
+      opacity: 1;
+    }
+
+    .examples {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+
+    .examples span {
+      color: var(--accent);
+      cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace;
+      margin-right: 1rem;
+    }
+
+    .examples span:hover {
+      text-decoration: underline;
+    }
+
+    .error {
+      background: rgba(248, 81, 73, 0.1);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+      border-radius: 6px;
+      color: var(--toxic);
+      font-size: 0.85rem;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    .results {
+      display: none;
+    }
+
+    .mol-header {
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+      padding: 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .mol-image {
+      width: 180px;
+      height: 180px;
+      flex-shrink: 0;
+      border-radius: 6px;
+      background: #ffffff08;
+      border: 1px solid var(--border);
+      object-fit: contain;
+    }
+
+    .mol-meta {
+      flex: 1;
+    }
+
+    .mol-meta .label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.2rem;
+    }
+
+    .mol-meta .smiles {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+      word-break: break-all;
+      margin-bottom: 1rem;
+    }
+
+    .mol-stats {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat .num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat .unit {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .note-box {
+      font-size: 0.75rem;
+      color: var(--warn);
+      background: rgba(210, 153, 34, 0.08);
+      border: 1px solid rgba(210, 153, 34, 0.25);
+      border-radius: 4px;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.75rem;
+    }
+
+    .predictions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 600px) {
+      .predictions-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .mol-header {
+        flex-direction: column;
+      }
+
+      .mol-image {
+        width: 100%;
+        height: 200px;
+      }
+
+      .btn-row {
+        flex-wrap: wrap;
+      }
+
+      .explain-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pred-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.85rem 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pred-card.toxic {
+      border-left: 3px solid var(--toxic);
+    }
+
+    .pred-card.safe {
+      border-left: 3px solid var(--safe);
+    }
+
+    .pred-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+
+    .pred-name {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .pred-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-toxic {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--toxic);
+    }
+
+    .badge-safe {
+      background: rgba(63, 185, 80, 0.12);
+      color: var(--safe);
+    }
+
+    .pred-desc {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+      line-height: 1.4;
+    }
+
+    .pred-bar-wrap {
+      background: #ffffff0a;
+      border-radius: 3px;
+      height: 4px;
+      margin-bottom: 0.4rem;
+      overflow: hidden;
+    }
+
+    .pred-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s ease;
+    }
+
+    .bar-toxic {
+      background: var(--toxic);
+    }
+
+    .bar-safe {
+      background: var(--safe);
+    }
+
+    .pred-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+    }
+
+    .pred-prob {
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .conf-high {
+      color: var(--safe);
+    }
+
+    .conf-medium {
+      color: var(--warn);
+    }
+
+    .conf-low {
+      color: var(--muted);
+    }
+
+    /* ── EXPLAIN SECTION ─────────────────────────────────────────── */
+
+    .explain-section {
+      display: none;
+      margin-top: 0.5rem;
+    }
+
+    .explain-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .explain-header .section-label {
+      margin-bottom: 0;
+    }
+
+    .explain-tag {
+      font-size: 0.65rem;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--explain);
+      background: rgba(188, 140, 255, 0.1);
+      border: 1px solid rgba(188, 140, 255, 0.25);
+      border-radius: 3px;
+      padding: 0.1rem 0.45rem;
+      letter-spacing: 0.05em;
+    }
+
+    .explain-grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .highlighted-mol {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 1px solid rgba(188, 140, 255, 0.25);
+      background: #ffffff08;
+      object-fit: contain;
+    }
+
+    .explain-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .explain-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.85rem 1rem;
+    }
+
+    .explain-box .label {
+      margin-bottom: 0.6rem;
+    }
+
+    .group-pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-family: 'IBM Plex Mono', monospace;
+      background: rgba(88, 166, 255, 0.08);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      border-radius: 20px;
+      padding: 0.2rem 0.65rem;
+      margin: 0.2rem 0.2rem 0.2rem 0;
+      color: var(--accent);
+    }
+
+    .group-pill.highlight {
+      background: rgba(188, 140, 255, 0.1);
+      border-color: rgba(188, 140, 255, 0.35);
+      color: var(--explain);
+    }
+
+    /* Narrative */
+    .narrative-box {
+      background: var(--surface);
+      border: 1px solid rgba(188, 140, 255, 0.2);
+      border-radius: 8px;
+      padding: 1.25rem 1.4rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .narrative-label {
+      font-size: 0.7rem;
+      color: var(--explain);
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .narrative-label::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--explain);
+      flex-shrink: 0;
+    }
+
+    /* markdown rendered narrative styles */
+    .narrative-text {
+      font-size: 0.84rem;
+      line-height: 1.75;
+      color: var(--text);
+    }
+
+    .narrative-text h1,
+    .narrative-text h2,
+    .narrative-text h3 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--explain);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 1rem 0 0.4rem;
+    }
+
+    .narrative-text p {
+      margin-bottom: 0.75rem;
+    }
+
+    .narrative-text p:last-child {
+      margin-bottom: 0;
+    }
+
+    .narrative-text strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .narrative-text ul,
+    .narrative-text ol {
+      padding-left: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .narrative-text li {
+      margin-bottom: 0.3rem;
+    }
+
+    .narrative-text h1,
+    .narrative-text h2,
+    .narrative-text h3 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--explain);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 1rem 0 0.4rem;
+    }
+
+    .narrative-text p {
+      margin-bottom: 0.75rem;
+    }
+
+    .narrative-text p:last-child {
+      margin-bottom: 0;
+    }
+
+    .narrative-text strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .narrative-text ul,
+    .narrative-text ol {
+      padding-left: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .narrative-text li {
+      margin-bottom: 0.3rem;
+    }
+
+    /* Per-target cards */
+    .explain-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .explain-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.85rem 1rem;
+    }
+
+    .explain-card.flagged {
+      border-left: 3px solid var(--explain);
+    }
+
+    .explain-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.45rem;
+    }
+
+    .explain-card-name {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .explain-card-prob {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .explain-card-desc {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .explain-card-groups {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    .no-groups {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .method-note {
+      font-size: 0.72rem;
+      color: var(--muted);
+      background: rgba(125, 133, 144, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.6rem 0.85rem;
+      line-height: 1.5;
+      margin-bottom: 2rem;
+    }
+
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 2rem auto;
+    }
+
+    .explain-spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--explain);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 1.5rem auto;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>mol-tox-predictor</h1>
+    <p>Multi-task GNN · Tox21 · 12 biological targets · 0.8284 mean AUC-ROC</p>
+  </header>
+
+  <div class="container">
+
+    <div class="input-row">
+      <input type="text" id="query" placeholder="caffeine  or  CC(=O)Oc1ccccc1C(=O)O" />
+      <select id="inputType">
+        <option value="auto">auto-detect</option>
+        <option value="name">name</option>
+        <option value="smiles">SMILES</option>
+      </select>
+    </div>
+
+    <div class="btn-row">
+      <button id="predictBtn" onclick="predict()">Predict</button>
+      <button id="explainBtn" onclick="explain()" disabled title="Run Predict first">⬡ Explain</button>
+    </div>
+
+    <div class="examples">
+      Try:
+      <span onclick="setExample('caffeine','name')">caffeine</span>
+      <span onclick="setExample('aspirin','name')">aspirin</span>
+      <span onclick="setExample('CC1=CC(=C(C=C1)Cl)NC2=NC=CC(=N2)NC3=CC=CC(=C3)S(=O)(=O)N','smiles')">dasatinib
+        (SMILES)</span>
+    </div>
+
+    <div class="error" id="errorBox"></div>
+    <div class="spinner" id="spinner"></div>
+
+    <div class="results" id="results">
+
+      <div class="mol-header">
+        <img class="mol-image" id="molImg" src="" alt="Molecule structure" />
+        <div class="mol-meta">
+          <div class="label">Resolved SMILES</div>
+          <div class="smiles" id="smilesOut"></div>
+          <div class="mol-stats">
+            <div class="stat">
+              <div class="num" id="atomCount">—</div>
+              <div class="unit">atoms</div>
+            </div>
+            <div class="stat">
+              <div class="num" id="bondCount">—</div>
+              <div class="unit">bonds</div>
+            </div>
+            <div class="stat">
+              <div class="num" id="toxicCount">—</div>
+              <div class="unit">targets flagged</div>
+            </div>
+          </div>
+          <div class="note-box" id="noteBox"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Toxicity predictions — 12 Tox21 targets</div>
+      <div class="predictions-grid" id="predsGrid"></div>
+
+      <!-- EXPLAIN SECTION -->
+      <div class="explain-section" id="explainSection">
+        <div class="explain-header">
+          <div class="section-label">White-box explanation</div>
+          <span class="explain-tag">Gradient Saliency · Llama 4 Scout</span>
+        </div>
+        <div class="explain-spinner" id="explainSpinner"></div>
+        <div id="explainContent"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:8000';
+    let lastQuery = null;
+    let lastInputType = null;
+
+    function setExample(val, type) {
+      document.getElementById('query').value = val;
+      document.getElementById('inputType').value = type;
+      hideExplain();
+      document.getElementById('explainBtn').disabled = true;
+    }
+
+    function show(id) { document.getElementById(id).style.display = 'block'; }
+    function hide(id) { document.getElementById(id).style.display = 'none'; }
+
+    function hideExplain() {
+      hide('explainSection');
+      document.getElementById('explainContent').innerHTML = '';
+    }
+
+    async function predict() {
+      const query = document.getElementById('query').value.trim();
+      const inputType = document.getElementById('inputType').value;
+      if (!query) return;
+
+      hide('results');
+      hide('errorBox');
+      hideExplain();
+      show('spinner');
+      document.getElementById('predictBtn').disabled = true;
+      document.getElementById('explainBtn').disabled = true;
+
+      try {
+        const res = await fetch(`${API}/predict`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: query, input_type: inputType })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
+
+        lastQuery = query;
+        lastInputType = inputType;
+        render(data);
+        document.getElementById('explainBtn').disabled = false;
+
+      } catch (e) {
+        document.getElementById('errorBox').textContent = e.message;
+        show('errorBox');
+      } finally {
+        hide('spinner');
+        document.getElementById('predictBtn').disabled = false;
+      }
+    }
+
+    async function explain() {
+      if (!lastQuery) return;
+
+      show('explainSection');
+      show('explainSpinner');
+      document.getElementById('explainBtn').disabled = true;
+      document.getElementById('explainContent').innerHTML = '';
+
+      try {
+        const res = await fetch(`${API}/explain`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: lastQuery, input_type: lastInputType, top_n_atoms: 6 })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
+
+        renderExplain(data);
+
+      } catch (e) {
+        document.getElementById('explainContent').innerHTML =
+          `<div class="error" style="display:block">${e.message}</div>`;
+      } finally {
+        hide('explainSpinner');
+        document.getElementById('explainBtn').disabled = false;
+      }
+    }
+
+    function render(data) {
+      document.getElementById('molImg').src = `data:image/png;base64,${data.molecule_image}`;
+      document.getElementById('smilesOut').textContent = data.resolved_smiles;
+      document.getElementById('atomCount').textContent = data.num_atoms;
+      document.getElementById('bondCount').textContent = data.num_bonds;
+      document.getElementById('noteBox').textContent = data.note;
+
+      const preds = data.predictions;
+      const toxicCount = Object.values(preds).filter(p => p.toxic).length;
+      document.getElementById('toxicCount').textContent = toxicCount;
+
+      const grid = document.getElementById('predsGrid');
+      grid.innerHTML = '';
+
+      for (const [target, p] of Object.entries(preds)) {
+        const card = document.createElement('div');
+        card.className = `pred-card ${p.toxic ? 'toxic' : 'safe'}`;
+        card.innerHTML = `
+        <div class="pred-top">
+          <div class="pred-name">${target}</div>
+          <span class="pred-badge ${p.toxic ? 'badge-toxic' : 'badge-safe'}">${p.toxic ? 'Toxic' : 'Safe'}</span>
+        </div>
+        <div class="pred-desc">${p.description}</div>
+        <div class="pred-bar-wrap">
+          <div class="pred-bar ${p.toxic ? 'bar-toxic' : 'bar-safe'}" style="width:${(p.probability * 100).toFixed(1)}%"></div>
+        </div>
+        <div class="pred-footer">
+          <span class="pred-prob">${(p.probability * 100).toFixed(1)}% probability</span>
+          <span class="conf-${p.confidence}">${p.confidence} confidence · AUC ${p.model_auc}</span>
+        </div>`;
+        grid.appendChild(card);
+      }
+
+      show('results');
+    }
+
+    function renderExplain(data) {
+      const fmt = data.highlighted_molecule_format === 'svg' ? 'image/svg+xml' : 'image/png';
+      const imgSrc = `data:${fmt};base64,${data.highlighted_molecule_image}`;
+
+      const exps = data.explanations || [];
+      const flagged = exps.filter(e => e.probability >= 0.35).sort((a, b) => b.probability - a.probability);
+      const safeList = exps.filter(e => e.probability < 0.35);
+      const sorted = [...exps].sort((a, b) => b.probability - a.probability);
+
+      // group frequency across flagged targets
+      const groupFreq = {};
+      for (const e of flagged) {
+        for (const g of (e.matched_functional_groups || [])) {
+          groupFreq[g.name] = (groupFreq[g.name] || 0) + 1;
+        }
+      }
+      const groupsSorted = Object.entries(groupFreq).sort((a, b) => b[1] - a[1]);
+      const topDriver = groupsSorted[0];
+      const toxicCount = exps.filter(e => e.toxic).length;
+      const highest = sorted[0];
+
+      // atom saliency top 10
+      const atomScores = data.atom_saliency_scores || {};
+      const atomEntries = Object.entries(atomScores)
+        .map(([i, v]) => ({ idx: parseInt(i), symbol: v.symbol, score: v.saliency_score }))
+        .sort((a, b) => b.score - a.score).slice(0, 10);
+      const maxScore = atomEntries[0]?.score || 1;
+
+      const TOXIC = '#f85149';
+      const SAFE = '#3fb950';
+      const WARN = '#d29922';
+      const SAL = '#bc8cff';
+
+      // stat cards
+      const statsHtml = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
+          <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">targets flagged</div>
+          <div style="font-size:26px;font-weight:600;color:${TOXIC};font-family:'IBM Plex Mono',monospace">${toxicCount}<span style="font-size:14px;color:var(--muted)"> / 12</span></div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
+          <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">highest risk</div>
+          <div style="font-size:14px;font-weight:600;color:${TOXIC};font-family:'IBM Plex Mono',monospace;margin-bottom:2px">${highest?.target || '—'}</div>
+          <div style="font-size:20px;font-weight:600;color:var(--text);font-family:'IBM Plex Mono',monospace">${highest ? (highest.probability * 100).toFixed(1) + '%' : '—'}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
+          <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">top structural driver</div>
+          <div style="font-size:13px;font-weight:500;color:${SAL};line-height:1.3">${topDriver ? topDriver[0] : 'none detected'}</div>
+          ${topDriver ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">across ${topDriver[1]} targets</div>` : ''}
+        </div>
+      </div>`;
+
+      // probability bars
+      const probBars = sorted.map(e => {
+        const color = e.probability >= 0.5 ? TOXIC : e.probability >= 0.35 ? WARN : SAFE;
+        return `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);min-width:88px;text-align:right">${e.target}</span>
+          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:3px;height:13px;overflow:hidden;">
+            <div style="width:${(e.probability * 100).toFixed(1)}%;height:100%;background:${color};border-radius:3px;"></div>
+          </div>
+          <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:${color};min-width:40px">${(e.probability * 100).toFixed(1)}%</span>
+        </div>`;
+      }).join('');
+
+      // group frequency chips
+      const groupChips = groupsSorted.length
+        ? groupsSorted.map(([name, count]) => {
+          const alpha = (0.08 + Math.min(count / 12, 1) * 0.22).toFixed(2);
+          return `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(188,140,255,${alpha});border:1px solid rgba(188,140,255,0.35);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text)">
+            ${name}
+            <span style="background:rgba(188,140,255,0.5);border-radius:10px;padding:0 5px;font-size:10px;font-weight:600">${count}</span>
+          </span>`;
+        }).join('')
+        : '<span style="font-size:12px;color:var(--muted)">No named groups in flagged region</span>';
+
+      // atom saliency bars
+      const atomBarsHtml = atomEntries.map(a => `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);min-width:38px;text-align:right">${a.symbol}${a.idx}</span>
+        <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:3px;height:9px;overflow:hidden;">
+          <div style="width:${(a.score / maxScore * 100).toFixed(1)}%;height:100%;background:${SAL};border-radius:3px;"></div>
+        </div>
+        <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:${SAL};min-width:44px">${a.score.toFixed(3)}</span>
+      </div>`).join('');
+
+      // per-target cards
+      const targetCardsHtml = flagged.map(e => {
+        const color = e.probability >= 0.5 ? TOXIC : WARN;
+        const topGroups = (e.matched_functional_groups || []).slice(0, 3);
+        const groupPills = topGroups.length
+          ? topGroups.map(g => `<span style="font-size:10px;background:rgba(188,140,255,0.12);border:1px solid rgba(188,140,255,0.3);border-radius:12px;padding:2px 7px;color:var(--explain)">${g.name}</span>`).join('')
+          : `<span style="font-size:10px;color:var(--muted);font-style:italic">no groups matched</span>`;
+        return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:6px;padding:0.75rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)">${e.target}</span>
+            <span style="font-size:11px;color:${color};font-weight:600">${(e.probability * 100).toFixed(1)}%</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.4">${e.description}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;">${groupPills}</div>
+        </div>`;
+      }).join('');
+
+      const safePills = safeList.map(e =>
+        `<span style="font-size:11px;font-family:'IBM Plex Mono',monospace;background:rgba(63,185,80,0.07);border:1px solid rgba(63,185,80,0.2);border-radius:12px;padding:2px 8px;color:var(--muted)">${e.target}</span>`
+      ).join('');
+
+      document.getElementById('explainContent').innerHTML = `
+      <div style="display:grid;grid-template-columns:180px 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+        <img style="width:100%;aspect-ratio:1;border-radius:6px;border:1px solid rgba(188,140,255,0.25);background:#ffffff08;object-fit:contain" src="${imgSrc}" alt="Highlighted molecule" />
+        <div>
+          ${statsHtml}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
+            <div class="section-label" style="margin-bottom:0.6rem">Functional groups · frequency across flagged targets</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">${groupChips}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;margin-bottom:1.25rem;">
+        <div class="section-label" style="margin-bottom:0.75rem">Toxicity probability — all 12 targets</div>
+        <div style="display:flex;flex-direction:column;gap:7px;">${probBars}</div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;margin-bottom:1.25rem;">
+        <div class="section-label" style="margin-bottom:0.75rem">Atom saliency — gradient × input scores</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">${atomBarsHtml}</div>
+      </div>
+
+      ${flagged.length ? `
+        <div class="section-label" style="margin-bottom:0.6rem">Flagged targets — structural drivers</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:1.25rem;">${targetCardsHtml}</div>
+      ` : ''}
+
+      ${safePills ? `
+        <div class="section-label" style="margin-bottom:0.5rem">Low-risk targets</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;">${safePills}</div>
+      ` : ''}
+
+      ${data.narrative && !data.groq_error ? `
+        <details style="background:var(--surface);border:1px solid rgba(188,140,255,0.2);border-radius:8px;padding:1rem;">
+          <summary style="cursor:pointer;font-size:12px;color:var(--explain);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;list-style:none;">▶ Full cheminformatics report · Llama 4 Scout</summary>
+          <div style="margin-top:0.85rem;font-size:0.84rem;line-height:1.75;color:var(--text)">$<div class="narrative-text">${marked.parse(data.narrative)}</div></div>
+        </details>
+      ` : ''}
+
+      <div class="method-note" style="margin-top:1rem">${data.method_note}</div>
+    `;
+    }
+    document.getElementById('query').addEventListener('keydown', e => {
+      if (e.key === 'Enter') predict();
+    });
+
+    document.getElementById('query').addEventListener('input', () => {
+      document.getElementById('explainBtn').disabled = true;
+      hideExplain();
+    });
+  </script>
+</body>
+
+</html>
