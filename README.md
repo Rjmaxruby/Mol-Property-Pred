@@ -124,7 +124,7 @@ For each flagged target:
 1. A backward pass through the GAT computes gradients of that target's predicted probability with respect to node features
 2. `saliency = |gradient × input|` summed across feature dimensions gives one importance score per atom
 3. Top-N atoms are matched against a SMARTS functional group library (~35 named groups: sulfonamides, nitro groups, aryl halides, ring systems, toxicophores, etc.)
-4. All findings are batched into a single Groq API call → Llama 3.1 writes a structured cheminformatics report
+4. All findings are batched into a single Groq API call → Llama 4 Scout writes a structured cheminformatics report
 
 ### Why Gradient × Input rather than attention?
 
