@@ -272,4 +272,4 @@ To retrain the model, open `04_multitask_gnn.ipynb` and run all cells. Training 
 
 ## Stack
 
-Python · PyTorch · PyTorch Geometric · RDKit · scikit-learn · XGBoost · SHAP · FastAPI · Groq (Llama 3.1) · PubChemPy · pandas · matplotlib
+Python · PyTorch · PyTorch Geometric · RDKit · scikit-learn · XGBoost · SHAP · FastAPI · Groq (Llama 4 Scout) · PubChemPy · pandas · matplotlib
