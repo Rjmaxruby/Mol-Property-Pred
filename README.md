@@ -21,7 +21,7 @@ Hit **Explain** and you additionally get:
 
 - Atom-level saliency map highlighting which parts of the molecule drove each prediction
 - Per-target structural analysis — different targets highlight different atoms
-- A cheminformatics report written by Llama 3.1 identifying the key functional groups, their known toxicological mechanisms, and concrete medicinal chemistry recommendations (bioisosteres, scaffold changes)
+- A cheminformatics report written by Llama 4 Scout identifying the key functional groups, their known toxicological mechanisms, and concrete medicinal chemistry recommendations (bioisosteres, scaffold changes)
 
 **Example — Dasatinib (cancer drug):** flags toxic on NR-AhR (80%), SR-p53 (81%), SR-ATAD5 (78%). The explain module identifies the pyrimidine ring and sulfonamide group as primary structural drivers, consistent with Dasatinib's known multi-target kinase inhibitor profile.
 
@@ -124,7 +124,7 @@ For each flagged target:
 1. A backward pass through the GAT computes gradients of that target's predicted probability with respect to node features
 2. `saliency = |gradient × input|` summed across feature dimensions gives one importance score per atom
 3. Top-N atoms are matched against a SMARTS functional group library (~35 named groups: sulfonamides, nitro groups, aryl halides, ring systems, toxicophores, etc.)
-4. All findings are batched into a single Groq API call → Llama 3.1 writes a structured cheminformatics report
+4. All findings are batched into a single Groq API call → Llama 4 Scout writes a structured cheminformatics report
 
 ### Why Gradient × Input rather than attention?
 
@@ -272,4 +272,4 @@ To retrain the model, open `04_multitask_gnn.ipynb` and run all cells. Training 
 
 ## Stack
 
-Python · PyTorch · PyTorch Geometric · RDKit · scikit-learn · XGBoost · SHAP · FastAPI · Groq (Llama 3.1) · PubChemPy · pandas · matplotlib
+Python · PyTorch · PyTorch Geometric · RDKit · scikit-learn · XGBoost · SHAP · FastAPI · Groq (Llama 4 Scout) · PubChemPy · pandas · matplotlib
