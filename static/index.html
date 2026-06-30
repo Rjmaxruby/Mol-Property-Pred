@@ -1,420 +1,1099 @@
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Molecular Toxicity Predictor</title>
+  <title>MolTox - Molecular Toxicity Predictor</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-
     :root {
-      --bg: #0d1117;
-      --surface: #161b22;
-      --border: #21262d;
-      --text: #e6edf3;
-      --muted: #7d8590;
-      --accent: #58a6ff;
-      --toxic: #f85149;
-      --safe: #3fb950;
-      --warn: #d29922;
-      --low-conf: #484f58;
-      --explain: #bc8cff;
+      --bg: #0a0f0a;
+      --bg-2: #0d140d;
+      --surface: #111a11;
+      --surface-2: #152015;
+      --surface-3: #1a281a;
+      --border: #1e2e1e;
+      --border-glow: #2a402a;
+      --text: #e8f0e8;
+      --text-dim: #8a9e8a;
+      --text-faint: #4a5e4a;
+      --accent: #7dd87d;
+      --accent-2: #5cb85c;
+      --accent-glow: rgba(125, 216, 125, 0.15);
+      --toxic: #e85d5d;
+      --toxic-glow: rgba(232, 93, 93, 0.2);
+      --safe: #5ce8a0;
+      --safe-glow: rgba(92, 232, 160, 0.15);
+      --warn: #e8c85c;
+      --warn-glow: rgba(232, 200, 92, 0.15);
+      --explain: #c8a0e8;
+      --explain-glow: rgba(200, 160, 232, 0.15);
+      --amber: #d4a85c;
+      --amber-glow: rgba(212, 168, 92, 0.15);
+      --cyan: #5cd4c8;
+      --cyan-glow: rgba(92, 212, 200, 0.15);
+      --petri: rgba(125, 216, 125, 0.03);
+      --leaf: rgba(92, 232, 160, 0.05);
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'IBM Plex Sans', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-weight: 400;
       min-height: 100vh;
-      padding: 2rem 1rem;
+      overflow-x: hidden;
+      position: relative;
     }
 
-    header {
-      max-width: 900px;
-      margin: 0 auto 2.5rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 1.5rem;
+    /* ── ORGANIC NOISE TEXTURE ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9998;
     }
 
-    header h1 {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 1.4rem;
-      font-weight: 600;
-      color: var(--accent);
-      letter-spacing: -0.02em;
-      margin-bottom: 0.3rem;
+    /* ── FLOATING SPORES / POLLEN ── */
+    .spore-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
     }
 
-    header p {
-      font-size: 0.85rem;
-      color: var(--muted);
-      font-weight: 300;
+    .spore-canvas canvas {
+      width: 100%;
+      height: 100%;
     }
 
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
+    /* ── VINE BORDER ANIMATION ── */
+    .vine-border {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, 
+        transparent 0%, 
+        var(--accent) 15%, 
+        var(--cyan) 35%, 
+        var(--amber) 55%, 
+        var(--accent) 75%, 
+        transparent 100%);
+      background-size: 200% 100%;
+      animation: vineGrow 8s ease-in-out infinite;
+      z-index: 10000;
+      opacity: 0.6;
     }
 
-    .input-row {
+    @keyframes vineGrow {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    ::selection { background: var(--accent-glow); color: var(--accent); }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
       display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      position: relative;
+      padding: 2.5rem 2rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(125,216,125,0.04) 0%, transparent 70%);
+      overflow: hidden;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), var(--cyan), var(--amber), var(--accent), transparent);
+      opacity: 0.4;
+    }
+
+    .header-grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .logo-block {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    .logo-icon {
+      width: 56px;
+      height: 56px;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 0 15px var(--accent-glow));
+    }
+
+    .logo-icon .leaf-sway {
+      animation: leafSway 4s ease-in-out infinite;
+      transform-origin: 28px 36px;
+    }
+
+    @keyframes leafSway {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(3deg); }
+    }
+
+    .logo-icon .spore-float {
+      animation: sporeFloat 3s ease-in-out infinite;
+    }
+
+    @keyframes sporeFloat {
+      0%, 100% { transform: translateY(0); opacity: 0.6; }
+      50% { transform: translateY(-3px); opacity: 1; }
+    }
+
+    .logo-icon .vine-grow {
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      animation: vineDraw 3s ease-out forwards;
+    }
+
+    @keyframes vineDraw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    .logo-text h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      line-height: 1.1;
+      text-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .logo-text .subtitle {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--text-faint);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-top: 0.3rem;
+    }
+
+    .header-center {
+      text-align: center;
+    }
+
+    .header-center .model-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.5rem 1.2rem;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header-center .model-badge::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      background: linear-gradient(135deg, var(--accent), var(--cyan), var(--amber));
+      opacity: 0.1;
+      z-index: -1;
+      filter: blur(8px);
+    }
+
+    .header-center .model-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--safe);
+      box-shadow: 0 0 10px var(--safe-glow);
+      animation: sporePulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes sporePulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .header-right {
+      text-align: right;
+    }
+
+    .header-right .metric-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
+    .header-right .metric-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .header-right .metric-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    /* ── MAIN ── */
+    .main {
+      flex: 1;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* ── INPUT SECTION ── */
+    .input-section {
+      position: relative;
+      margin-bottom: 2.5rem;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, var(--surface), var(--surface-2));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .input-section::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--cyan), var(--amber), var(--accent));
+      opacity: 0.5;
+    }
+
+    .input-section::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; right: -40px;
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
       gap: 0.75rem;
       margin-bottom: 1rem;
+      position: relative;
+      z-index: 1;
     }
 
-    .input-row input {
-      flex: 1;
-      background: var(--surface);
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-wrap::before {
+      content: '◈';
+      position: absolute;
+      left: 1.1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--accent);
+      animation: sporeTwinkle 2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes sporeTwinkle {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .input-wrap input {
+      width: 100%;
+      background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 12px;
       color: var(--text);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.9rem;
-      padding: 0.65rem 1rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      padding: 0.9rem 1rem 0.9rem 2.4rem;
       outline: none;
-      transition: border-color 0.15s;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      letter-spacing: 0.02em;
     }
 
-    .input-row input:focus {
+    .input-wrap input:focus {
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow), inset 0 1px 0 rgba(125,216,125,0.05);
+      background: var(--surface-2);
     }
 
-    .input-row input::placeholder {
-      color: var(--muted);
+    .input-wrap input::placeholder {
+      color: var(--text-faint);
+      font-style: italic;
     }
 
-    .input-row select {
-      background: var(--surface);
+    .type-select {
+      background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 0.85rem;
-      padding: 0.65rem 0.75rem;
+      border-radius: 12px;
+      color: var(--text-dim);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      padding: 0.9rem 1rem;
       outline: none;
       cursor: pointer;
+      transition: all 0.3s;
+      min-width: 130px;
     }
 
+    .type-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .type-select option {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    /* ── BUTTONS ── */
     .btn-row {
       display: flex;
-      gap: 0.6rem;
-      margin-bottom: 1rem;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      position: relative;
+      z-index: 1;
     }
 
-    button {
-      background: var(--accent);
-      border: none;
-      border-radius: 6px;
-      color: #0d1117;
-      cursor: pointer;
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 0.85rem;
-      font-weight: 600;
-      padding: 0.65rem 1.4rem;
-      transition: opacity 0.15s;
-      white-space: nowrap;
-    }
-
-    button:hover {
-      opacity: 0.85;
-    }
-
-    button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    #explainBtn {
+    .btn {
+      position: relative;
       background: transparent;
-      border: 1px solid var(--explain);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-style: italic;
+      letter-spacing: 0.08em;
+      padding: 0.8rem 2.2rem;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      opacity: 0;
+      z-index: -1;
+      filter: blur(15px);
+      transition: opacity 0.4s;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .btn:hover::after {
+      opacity: 0.15;
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn .btn-text {
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn .btn-icon {
+      position: relative;
+      z-index: 1;
+      font-size: 1.1rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(125,216,125,0.08), rgba(92,212,200,0.08));
+      border-color: rgba(125,216,125,0.3);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, rgba(125,216,125,0.15), rgba(92,212,200,0.15));
+      box-shadow: 0 0 40px var(--accent-glow);
+    }
+
+    .btn-explain {
+      border-color: rgba(200, 160, 232, 0.3);
       color: var(--explain);
     }
 
-    #explainBtn:hover {
-      background: rgba(188, 140, 255, 0.08);
-      opacity: 1;
+    .btn-explain:hover {
+      background: rgba(200, 160, 232, 0.08);
+      box-shadow: 0 0 40px var(--explain-glow);
     }
 
-    .examples {
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-bottom: 2rem;
+    .btn:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+      pointer-events: none;
     }
 
-    .examples span {
+    /* ── EXAMPLES ── */
+    .examples-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 1.2rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      width: fit-content;
+      position: relative;
+      z-index: 1;
+    }
+
+    .examples-bar .examples-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      white-space: nowrap;
+    }
+
+    .examples-bar .examples-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--border);
+    }
+
+    .examples-bar .example-chip {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
       color: var(--accent);
       cursor: pointer;
-      font-family: 'IBM Plex Mono', monospace;
-      margin-right: 1rem;
+      padding: 0.3rem 0.9rem;
+      border-radius: 100px;
+      border: 1px solid transparent;
+      transition: all 0.3s;
+      white-space: nowrap;
+      position: relative;
     }
 
-    .examples span:hover {
-      text-decoration: underline;
+    .examples-bar .example-chip:hover {
+      background: rgba(125,216,125,0.08);
+      border-color: rgba(125,216,125,0.25);
+      box-shadow: 0 0 15px var(--accent-glow);
+      transform: translateY(-1px);
     }
 
-    .error {
-      background: rgba(248, 81, 73, 0.1);
-      border: 1px solid rgba(248, 81, 73, 0.3);
-      border-radius: 6px;
-      color: var(--toxic);
-      font-size: 0.85rem;
-      padding: 0.75rem 1rem;
-      margin-bottom: 1.5rem;
+    /* ── ERROR ── */
+    .error-box {
       display: none;
+      position: relative;
+      background: rgba(232, 93, 93, 0.04);
+      border: 1px solid rgba(232, 93, 93, 0.2);
+      border-radius: 12px;
+      padding: 1.1rem 1.4rem;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
     }
 
+    .error-box::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--toxic);
+    }
+
+    .error-box .error-icon {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--toxic);
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .error-box .error-text {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--toxic);
+      opacity: 0.9;
+    }
+
+    /* ── SPINNER ── */
+    .spinner-wrap {
+      display: none;
+      padding: 2.5rem;
+      text-align: center;
+    }
+
+    .spinner-hud {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    .spinner-bio {
+      width: 56px;
+      height: 56px;
+      position: relative;
+    }
+
+    .spinner-bio svg {
+      width: 100%;
+      height: 100%;
+      animation: bioSpin 2s ease-in-out infinite;
+    }
+
+    @keyframes bioSpin {
+      0% { transform: rotate(0deg); }
+      50% { transform: rotate(180deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .spinner-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--text-faint);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+    }
+
+    /* ── RESULTS ── */
     .results {
       display: none;
+      animation: organicReveal 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .mol-header {
-      display: flex;
+    @keyframes organicReveal {
+      from { opacity: 0; transform: translateY(30px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ── MOLECULE CARD ── */
+    .mol-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 240px 1fr;
       gap: 2rem;
-      align-items: flex-start;
-      margin-bottom: 2rem;
-      padding: 1.25rem;
-      background: var(--surface);
+      margin-bottom: 2.5rem;
+      padding: 1.75rem;
+      background: linear-gradient(135deg, var(--surface), var(--surface-2));
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 20px;
+      overflow: hidden;
     }
 
-    .mol-image {
-      width: 180px;
-      height: 180px;
+    .mol-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--cyan), var(--amber));
+      opacity: 0.4;
+    }
+
+    .mol-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
+      opacity: 0.3;
+    }
+
+    .mol-image-wrap {
+      position: relative;
+      width: 240px;
+      height: 240px;
       flex-shrink: 0;
-      border-radius: 6px;
-      background: #ffffff08;
+      border-radius: 16px;
+      background: var(--bg);
       border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mol-image-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 30% 30%, rgba(125,216,125,0.04) 0%, transparent 50%),
+        radial-gradient(circle at 70% 70%, rgba(92,212,200,0.03) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .mol-image-wrap img {
+      width: 88%;
+      height: 88%;
       object-fit: contain;
+      filter: drop-shadow(0 0 10px rgba(125,216,125,0.08));
+    }
+
+    .mol-image-wrap .petri-ring {
+      position: absolute;
+      inset: 8px;
+      border: 1px dashed rgba(125,216,125,0.15);
+      border-radius: 12px;
+      pointer-events: none;
+    }
+
+    .mol-image-wrap .petri-ring::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border: 1px solid rgba(125,216,125,0.08);
+      border-radius: 13px;
     }
 
     .mol-meta {
-      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
     }
 
     .mol-meta .label {
-      font-size: 0.7rem;
-      color: var(--muted);
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--text-faint);
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 0.2rem;
+      letter-spacing: 0.22em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .mol-meta .label::before {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+      animation: sporePulse 2s ease-in-out infinite;
     }
 
     .mol-meta .smiles {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.8rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.76rem;
       color: var(--accent);
       word-break: break-all;
-      margin-bottom: 1rem;
+      background: rgba(125,216,125,0.04);
+      padding: 0.7rem 1rem;
+      border-radius: 10px;
+      border: 1px solid rgba(125,216,125,0.1);
+      letter-spacing: 0.03em;
+      line-height: 1.6;
     }
 
     .mol-stats {
-      display: flex;
-      gap: 1.5rem;
-      margin-bottom: 1rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.85rem;
     }
 
-    .stat .num {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 1.4rem;
-      font-weight: 600;
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.4s;
+    }
+
+    .stat-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .stat-card:hover::before {
+      opacity: 0.5;
+    }
+
+    .stat-card .num {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
       color: var(--text);
       line-height: 1;
     }
 
-    .stat .unit {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-top: 0.15rem;
+    .stat-card .unit {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--text-faint);
+      margin-top: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
     }
 
     .note-box {
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       color: var(--warn);
-      background: rgba(210, 153, 34, 0.08);
-      border: 1px solid rgba(210, 153, 34, 0.25);
-      border-radius: 4px;
-      padding: 0.5rem 0.75rem;
+      background: rgba(232, 200, 92, 0.04);
+      border: 1px solid rgba(232, 200, 92, 0.15);
+      border-radius: 10px;
+      padding: 0.85rem 1.1rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      line-height: 1.5;
     }
 
-    .section-label {
-      font-size: 0.7rem;
-      color: var(--muted);
-      font-family: 'IBM Plex Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.75rem;
+    .note-box::before {
+      content: '◈';
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.9rem;
+      color: var(--warn);
+      background: rgba(232, 200, 92, 0.12);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header .section-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+
+    .section-header .section-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    .section-header .section-count {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--text-faint);
+      background: var(--bg);
+      padding: 0.25rem 0.7rem;
+      border-radius: 100px;
+      border: 1px solid var(--border);
     }
 
     .predictions-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.6rem;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+      margin-bottom: 2.5rem;
     }
 
-    @media (max-width: 600px) {
-      .predictions-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .mol-header {
-        flex-direction: column;
-      }
-
-      .mol-image {
-        width: 100%;
-        height: 200px;
-      }
-
-      .btn-row {
-        flex-wrap: wrap;
-      }
-
-      .explain-grid {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 700px) {
+      .predictions-grid { grid-template-columns: 1fr; }
+      .mol-card { grid-template-columns: 1fr; }
+      .mol-image-wrap { width: 100%; height: 260px; }
+      .header-grid { grid-template-columns: 1fr; text-align: center; gap: 1rem; }
+      .header-right { text-align: center; }
+      .header-right .metric-row { justify-content: center; }
+      .input-grid { grid-template-columns: 1fr; }
+      .btn-row { flex-wrap: wrap; }
     }
 
     .pred-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.85rem 1rem;
       position: relative;
+      background: linear-gradient(135deg, var(--surface), var(--surface-2));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.2rem 1.4rem;
       overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: organicCardAppear 0.5s ease-out backwards;
+    }
+
+    .pred-card:nth-child(1) { animation-delay: 0.06s; }
+    .pred-card:nth-child(2) { animation-delay: 0.12s; }
+    .pred-card:nth-child(3) { animation-delay: 0.18s; }
+    .pred-card:nth-child(4) { animation-delay: 0.24s; }
+    .pred-card:nth-child(5) { animation-delay: 0.30s; }
+    .pred-card:nth-child(6) { animation-delay: 0.36s; }
+    .pred-card:nth-child(7) { animation-delay: 0.42s; }
+    .pred-card:nth-child(8) { animation-delay: 0.48s; }
+    .pred-card:nth-child(9) { animation-delay: 0.54s; }
+    .pred-card:nth-child(10) { animation-delay: 0.60s; }
+    .pred-card:nth-child(11) { animation-delay: 0.66s; }
+    .pred-card:nth-child(12) { animation-delay: 0.72s; }
+
+    @keyframes organicCardAppear {
+      from { opacity: 0; transform: translateY(15px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .pred-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-glow);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
     }
 
     .pred-card.toxic {
       border-left: 3px solid var(--toxic);
     }
 
+    .pred-card.toxic:hover {
+      box-shadow: 0 12px 40px var(--toxic-glow), 0 0 0 1px rgba(232,93,93,0.08);
+    }
+
     .pred-card.safe {
       border-left: 3px solid var(--safe);
+    }
+
+    .pred-card.safe:hover {
+      box-shadow: 0 12px 40px var(--safe-glow), 0 0 0 1px rgba(92,232,160,0.08);
     }
 
     .pred-top {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.6rem;
     }
 
     .pred-name {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.78rem;
-      font-weight: 600;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.76rem;
+      font-weight: 700;
       color: var(--text);
+      letter-spacing: 0.02em;
     }
 
     .pred-badge {
-      font-size: 0.68rem;
-      font-weight: 600;
-      padding: 0.15rem 0.5rem;
-      border-radius: 3px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      font-style: italic;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
     }
 
     .badge-toxic {
-      background: rgba(248, 81, 73, 0.15);
+      background: rgba(232, 93, 93, 0.1);
       color: var(--toxic);
+      border: 1px solid rgba(232, 93, 93, 0.2);
+      box-shadow: 0 0 10px var(--toxic-glow);
     }
 
     .badge-safe {
-      background: rgba(63, 185, 80, 0.12);
+      background: rgba(92, 232, 160, 0.08);
       color: var(--safe);
+      border: 1px solid rgba(92, 232, 160, 0.15);
     }
 
     .pred-desc {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-bottom: 0.6rem;
-      line-height: 1.4;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 0.8rem;
+      line-height: 1.55;
+      font-weight: 400;
     }
 
     .pred-bar-wrap {
-      background: #ffffff0a;
-      border-radius: 3px;
-      height: 4px;
-      margin-bottom: 0.4rem;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      height: 6px;
+      margin-bottom: 0.55rem;
       overflow: hidden;
+      position: relative;
+    }
+
+    .pred-bar-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      animation: sapFlow 2.5s ease-in-out infinite;
+    }
+
+    @keyframes sapFlow {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
     }
 
     .pred-bar {
       height: 100%;
-      border-radius: 3px;
-      transition: width 0.6s ease;
+      border-radius: 6px;
+      transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 1;
     }
 
     .bar-toxic {
-      background: var(--toxic);
+      background: linear-gradient(90deg, var(--toxic), #f0a0a0);
+      box-shadow: 0 0 10px var(--toxic-glow);
     }
 
     .bar-safe {
-      background: var(--safe);
+      background: linear-gradient(90deg, var(--safe), #a0f0c8);
     }
 
     .pred-footer {
       display: flex;
       justify-content: space-between;
-      font-size: 0.68rem;
+      align-items: center;
+      font-size: 0.65rem;
     }
 
     .pred-prob {
       color: var(--text);
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: 'Space Mono', monospace;
+      font-weight: 500;
     }
 
-    .conf-high {
-      color: var(--safe);
-    }
-
-    .conf-medium {
-      color: var(--warn);
-    }
-
-    .conf-low {
-      color: var(--muted);
-    }
-
-    /* ── EXPLAIN SECTION ─────────────────────────────────────────── */
+    .conf-high { color: var(--safe); }
+    .conf-medium { color: var(--warn); }
+    .conf-low { color: var(--text-faint); }
 
     .explain-section {
       display: none;
       margin-top: 0.5rem;
+      animation: organicReveal 0.7s ease-out;
     }
 
     .explain-header {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-      margin-bottom: 1.25rem;
+      gap: 0.85rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
     }
 
     .explain-header .section-label {
-      margin-bottom: 0;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--explain);
+      letter-spacing: 0.06em;
     }
 
     .explain-tag {
-      font-size: 0.65rem;
-      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.58rem;
+      font-family: 'Space Mono', monospace;
       color: var(--explain);
-      background: rgba(188, 140, 255, 0.1);
-      border: 1px solid rgba(188, 140, 255, 0.25);
-      border-radius: 3px;
-      padding: 0.1rem 0.45rem;
-      letter-spacing: 0.05em;
+      background: rgba(200, 160, 232, 0.06);
+      border: 1px solid rgba(200, 160, 232, 0.18);
+      border-radius: 6px;
+      padding: 0.2rem 0.55rem;
+      letter-spacing: 0.06em;
+    }
+
+    .explain-tag .pulse-dot {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--explain);
+      margin-right: 0.35rem;
+      animation: sporePulse 1.8s ease-in-out infinite;
     }
 
     .explain-grid {
@@ -427,168 +1106,142 @@
     .highlighted-mol {
       width: 100%;
       aspect-ratio: 1;
-      border-radius: 6px;
-      border: 1px solid rgba(188, 140, 255, 0.25);
-      background: #ffffff08;
+      border-radius: 12px;
+      border: 1px solid rgba(200, 160, 232, 0.2);
+      background: var(--bg);
       object-fit: contain;
     }
 
     .explain-meta {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.85rem;
     }
 
     .explain-box {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      padding: 1.1rem 1.3rem;
     }
 
     .explain-box .label {
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.7rem;
     }
 
     .group-pill {
       display: inline-block;
       font-size: 0.72rem;
-      font-family: 'IBM Plex Mono', monospace;
-      background: rgba(88, 166, 255, 0.08);
-      border: 1px solid rgba(88, 166, 255, 0.2);
+      font-family: 'Space Mono', monospace;
+      background: rgba(125, 216, 125, 0.06);
+      border: 1px solid rgba(125, 216, 125, 0.15);
       border-radius: 20px;
-      padding: 0.2rem 0.65rem;
-      margin: 0.2rem 0.2rem 0.2rem 0;
+      padding: 0.25rem 0.75rem;
+      margin: 0.15rem 0.15rem 0.15rem 0;
       color: var(--accent);
+      transition: all 0.25s;
+    }
+
+    .group-pill:hover {
+      background: rgba(125, 216, 125, 0.12);
+      border-color: rgba(125, 216, 125, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 0 8px var(--accent-glow);
     }
 
     .group-pill.highlight {
-      background: rgba(188, 140, 255, 0.1);
-      border-color: rgba(188, 140, 255, 0.35);
+      background: rgba(200, 160, 232, 0.1);
+      border-color: rgba(200, 160, 232, 0.3);
       color: var(--explain);
+      box-shadow: 0 0 8px var(--explain-glow);
     }
 
-    /* Narrative */
     .narrative-box {
-      background: var(--surface);
-      border: 1px solid rgba(188, 140, 255, 0.2);
-      border-radius: 8px;
-      padding: 1.25rem 1.4rem;
+      background: linear-gradient(135deg, var(--surface), var(--surface-2));
+      border: 1px solid rgba(200, 160, 232, 0.12);
+      border-radius: 14px;
+      padding: 1.6rem 1.8rem;
       margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .narrative-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--explain), transparent);
+      opacity: 0.25;
     }
 
     .narrative-label {
       font-size: 0.7rem;
       color: var(--explain);
-      font-family: 'IBM Plex Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.85rem;
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 600;
+      font-style: italic;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.6rem;
     }
 
     .narrative-label::before {
       content: '';
       display: inline-block;
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--explain);
-      flex-shrink: 0;
+      box-shadow: 0 0 10px var(--explain-glow);
+      animation: sporePulse 2s ease-in-out infinite;
     }
 
-    /* markdown rendered narrative styles */
     .narrative-text {
-      font-size: 0.84rem;
-      line-height: 1.75;
+      font-size: 0.88rem;
+      line-height: 1.85;
       color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
     }
 
-    .narrative-text h1,
-    .narrative-text h2,
-    .narrative-text h3 {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.82rem;
+    .narrative-text h1, .narrative-text h2, .narrative-text h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.8rem;
       font-weight: 600;
+      font-style: italic;
       color: var(--explain);
-      text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin: 1rem 0 0.4rem;
+      margin: 1.2rem 0 0.5rem;
     }
 
-    .narrative-text p {
-      margin-bottom: 0.75rem;
-    }
+    .narrative-text p { margin-bottom: 0.9rem; }
+    .narrative-text p:last-child { margin-bottom: 0; }
+    .narrative-text strong { color: var(--text); font-weight: 600; }
+    .narrative-text ul, .narrative-text ol { padding-left: 1.5rem; margin-bottom: 0.9rem; }
+    .narrative-text li { margin-bottom: 0.4rem; }
 
-    .narrative-text p:last-child {
-      margin-bottom: 0;
-    }
-
-    .narrative-text strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .narrative-text ul,
-    .narrative-text ol {
-      padding-left: 1.5rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .narrative-text li {
-      margin-bottom: 0.3rem;
-    }
-
-    .narrative-text h1,
-    .narrative-text h2,
-    .narrative-text h3 {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--explain);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin: 1rem 0 0.4rem;
-    }
-
-    .narrative-text p {
-      margin-bottom: 0.75rem;
-    }
-
-    .narrative-text p:last-child {
-      margin-bottom: 0;
-    }
-
-    .narrative-text strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .narrative-text ul,
-    .narrative-text ol {
-      padding-left: 1.25rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .narrative-text li {
-      margin-bottom: 0.3rem;
-    }
-
-    /* Per-target cards */
     .explain-cards {
       display: flex;
       flex-direction: column;
-      gap: 0.6rem;
+      gap: 0.7rem;
       margin-bottom: 1.5rem;
     }
 
     .explain-card {
-      background: var(--surface);
+      background: linear-gradient(135deg, var(--surface), var(--surface-2));
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      padding: 1.1rem 1.3rem;
+      transition: all 0.35s;
+    }
+
+    .explain-card:hover {
+      border-color: var(--border-glow);
+      transform: translateX(5px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     }
 
     .explain-card.flagged {
@@ -599,157 +1252,356 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.45rem;
+      margin-bottom: 0.5rem;
     }
 
     .explain-card-name {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.78rem;
-      font-weight: 600;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.76rem;
+      font-weight: 700;
       color: var(--text);
     }
 
     .explain-card-prob {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 0.72rem;
-      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text-dim);
     }
 
     .explain-card-desc {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-bottom: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-bottom: 0.55rem;
+      line-height: 1.55;
     }
 
     .explain-card-groups {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.25rem;
+      gap: 0.35rem;
     }
 
     .no-groups {
-      font-size: 0.72rem;
-      color: var(--muted);
+      font-size: 0.7rem;
+      color: var(--text-faint);
       font-style: italic;
     }
 
     .method-note {
-      font-size: 0.72rem;
-      color: var(--muted);
-      background: rgba(125, 133, 144, 0.06);
+      font-size: 0.7rem;
+      color: var(--text-faint);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.6rem 0.85rem;
-      line-height: 1.5;
+      border-radius: 10px;
+      padding: 0.8rem 1.1rem;
+      line-height: 1.65;
       margin-bottom: 2rem;
-    }
-
-    .spinner {
-      display: none;
-      width: 20px;
-      height: 20px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      margin: 2rem auto;
+      font-family: 'Space Mono', monospace;
     }
 
     .explain-spinner {
       display: none;
-      width: 16px;
-      height: 16px;
+      width: 22px;
+      height: 22px;
       border: 2px solid var(--border);
       border-top-color: var(--explain);
       border-radius: 50%;
-      animation: spin 0.7s linear infinite;
+      animation: spin 0.8s linear infinite;
       margin: 1.5rem auto;
     }
 
     @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+      to { transform: rotate(360deg); }
+    }
+
+    .footer-bar {
+      padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      background: linear-gradient(0deg, rgba(125,216,125,0.02) 0%, transparent 60%);
+    }
+
+    .footer-bar p {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--text-faint);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .footer-bar .footer-accent {
+      color: var(--accent);
+    }
+
+    .footer-bar .footer-vine {
+      display: inline-block;
+      animation: leafSway 3s ease-in-out infinite;
     }
   </style>
 </head>
-
 <body>
+  <div class="vine-border"></div>
+  <div class="spore-canvas">
+    <canvas id="sporeCanvas"></canvas>
+  </div>
 
-  <header>
-    <h1>mol-tox-predictor</h1>
-    <p>Multi-task GNN · Tox21 · 12 biological targets · 0.8284 mean AUC-ROC</p>
-  </header>
-
-  <div class="container">
-
-    <div class="input-row">
-      <input type="text" id="query" placeholder="caffeine  or  CC(=O)Oc1ccccc1C(=O)O" />
-      <select id="inputType">
-        <option value="auto">auto-detect</option>
-        <option value="name">name</option>
-        <option value="smiles">SMILES</option>
-      </select>
-    </div>
-
-    <div class="btn-row">
-      <button id="predictBtn" onclick="predict()">Predict</button>
-      <button id="explainBtn" onclick="explain()" disabled title="Run Predict first">⬡ Explain</button>
-    </div>
-
-    <div class="examples">
-      Try:
-      <span onclick="setExample('caffeine','name')">caffeine</span>
-      <span onclick="setExample('aspirin','name')">aspirin</span>
-      <span onclick="setExample('CC1=CC(=C(C=C1)Cl)NC2=NC=CC(=N2)NC3=CC=CC(=C3)S(=O)(=O)N','smiles')">dasatinib
-        (SMILES)</span>
-    </div>
-
-    <div class="error" id="errorBox"></div>
-    <div class="spinner" id="spinner"></div>
-
-    <div class="results" id="results">
-
-      <div class="mol-header">
-        <img class="mol-image" id="molImg" src="" alt="Molecule structure" />
-        <div class="mol-meta">
-          <div class="label">Resolved SMILES</div>
-          <div class="smiles" id="smilesOut"></div>
-          <div class="mol-stats">
-            <div class="stat">
-              <div class="num" id="atomCount">—</div>
-              <div class="unit">atoms</div>
-            </div>
-            <div class="stat">
-              <div class="num" id="bondCount">—</div>
-              <div class="unit">bonds</div>
-            </div>
-            <div class="stat">
-              <div class="num" id="toxicCount">—</div>
-              <div class="unit">targets flagged</div>
-            </div>
+  <div class="app-shell">
+    <header class="header">
+      <div class="header-grid">
+        <div class="logo-block">
+          <div class="logo-icon">
+            <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Petri dish base -->
+              <circle cx="28" cy="28" r="24" stroke="var(--accent)" stroke-width="0.5" opacity="0.2"/>
+              <circle cx="28" cy="28" r="20" stroke="var(--accent)" stroke-width="0.3" opacity="0.15"/>
+              <!-- Vine stem -->
+              <path class="vine-grow" d="M28 44 Q28 36 24 32 Q20 28 22 22 Q24 16 28 12" stroke="var(--accent)" stroke-width="1" fill="none" opacity="0.6"/>
+              <path class="vine-grow" d="M28 44 Q28 36 32 32 Q36 28 34 22 Q32 16 28 12" stroke="var(--accent-2)" stroke-width="0.8" fill="none" opacity="0.4" style="animation-delay:0.5s"/>
+              <!-- Leaves -->
+              <g class="leaf-sway">
+                <ellipse cx="22" cy="22" rx="5" ry="3" fill="var(--accent)" opacity="0.3" transform="rotate(-30 22 22)"/>
+                <ellipse cx="34" cy="26" rx="4" ry="2.5" fill="var(--cyan)" opacity="0.25" transform="rotate(25 34 26)"/>
+                <ellipse cx="26" cy="16" rx="3.5" ry="2" fill="var(--amber)" opacity="0.2" transform="rotate(-15 26 16)"/>
+              </g>
+              <!-- Spores / pollen -->
+              <circle class="spore-float" cx="18" cy="18" r="1.5" fill="var(--accent)" opacity="0.6"/>
+              <circle class="spore-float" cx="38" cy="20" r="1" fill="var(--cyan)" opacity="0.5" style="animation-delay:0.7s"/>
+              <circle class="spore-float" cx="32" cy="14" r="1.2" fill="var(--amber)" opacity="0.4" style="animation-delay:1.2s"/>
+              <circle class="spore-float" cx="20" cy="30" r="0.8" fill="var(--accent)" opacity="0.5" style="animation-delay:1.8s"/>
+              <!-- Central compound -->
+              <circle cx="28" cy="28" r="3" fill="var(--accent)" opacity="0.5">
+                <animate attributeName="opacity" values="0.5;0.8;0.5" dur="3s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="28" cy="28" r="1.5" fill="var(--bg)"/>
+              <!-- Hexagonal molecular ring -->
+              <polygon points="28,20 33.5,23 33.5,29 28,32 22.5,29 22.5,23" stroke="var(--accent)" stroke-width="0.4" fill="none" opacity="0.25"/>
+            </svg>
           </div>
-          <div class="note-box" id="noteBox"></div>
+          <div class="logo-text">
+            <h1>MolTox</h1>
+            <div class="subtitle">Molecular Toxicity Predictor</div>
+          </div>
+        </div>
+        <div class="header-center">
+          <div class="model-badge">
+            <span class="dot"></span>
+            Multi-task GNN · Tox21 · 12 biological targets
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="metric-row">
+            <span class="metric-value">0.8284</span>
+            <span class="metric-label">mean AUC-ROC</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="input-section">
+        <div class="input-grid">
+          <div class="input-wrap">
+            <input type="text" id="query" placeholder="caffeine  or  CC(=O)Oc1ccccc1C(=O)O" />
+          </div>
+          <select class="type-select" id="inputType">
+            <option value="auto">auto-detect</option>
+            <option value="name">name</option>
+            <option value="smiles">SMILES</option>
+          </select>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="predictBtn" onclick="predict()">
+            <span class="btn-icon">◈</span>
+            <span class="btn-text">Predict</span>
+          </button>
+          <button class="btn btn-explain" id="explainBtn" onclick="explain()" disabled title="Run Predict first">
+            <span class="btn-icon">⬡</span>
+            <span class="btn-text">Explain</span>
+          </button>
+        </div>
+
+        <div class="examples-bar">
+          <span class="examples-label">Quick Test</span>
+          <span class="examples-divider"></span>
+          <span class="example-chip" onclick="setExample('caffeine','name')">caffeine</span>
+          <span class="example-chip" onclick="setExample('aspirin','name')">aspirin</span>
+          <span class="example-chip" onclick="setExample('CC1=CC(=C(C=C1)Cl)NC2=NC=CC(=N2)NC3=CC=CC(=C3)S(=O)(=O)N','smiles')">dasatinib</span>
         </div>
       </div>
 
-      <div class="section-label">Toxicity predictions — 12 Tox21 targets</div>
-      <div class="predictions-grid" id="predsGrid"></div>
-
-      <!-- EXPLAIN SECTION -->
-      <div class="explain-section" id="explainSection">
-        <div class="explain-header">
-          <div class="section-label">White-box explanation</div>
-          <span class="explain-tag">Gradient Saliency · Llama 4 Scout</span>
-        </div>
-        <div class="explain-spinner" id="explainSpinner"></div>
-        <div id="explainContent"></div>
+      <div class="error-box" id="errorBox">
+        <div class="error-icon">◈ Error</div>
+        <div class="error-text" id="errorText"></div>
       </div>
 
-    </div>
+      <div class="spinner-wrap" id="spinnerWrap">
+        <div class="spinner-hud">
+          <div class="spinner-bio">
+            <svg viewBox="0 0 56 56" fill="none">
+              <circle cx="28" cy="28" r="24" stroke="var(--border)" stroke-width="1.5"/>
+              <path d="M28 52 Q28 36 16 28 Q8 22 12 12" stroke="var(--accent)" stroke-width="1.5" fill="none" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" from="0 28 28" to="360 28 28" dur="2s" repeatCount="indefinite"/>
+              </path>
+              <path d="M28 52 Q28 36 40 28 Q48 22 44 12" stroke="var(--cyan)" stroke-width="1.5" fill="none" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" from="0 28 28" to="-360 28 28" dur="2.5s" repeatCount="indefinite"/>
+              </path>
+              <circle cx="28" cy="28" r="4" fill="var(--accent)" opacity="0.6">
+                <animate attributeName="r" values="4;5;4" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+          </div>
+          <div class="spinner-label">Analyzing molecular structure</div>
+        </div>
+      </div>
+
+      <div class="results" id="results">
+        <div class="mol-card">
+          <div class="mol-image-wrap">
+            <img id="molImg" src="" alt="Molecule structure" />
+            <div class="petri-ring"></div>
+          </div>
+          <div class="mol-meta">
+            <div>
+              <div class="label">Resolved SMILES</div>
+              <div class="smiles" id="smilesOut"></div>
+            </div>
+            <div class="mol-stats">
+              <div class="stat-card">
+                <div class="num" id="atomCount">—</div>
+                <div class="unit">atoms</div>
+              </div>
+              <div class="stat-card">
+                <div class="num" id="bondCount">—</div>
+                <div class="unit">bonds</div>
+              </div>
+              <div class="stat-card">
+                <div class="num" id="toxicCount">—</div>
+                <div class="unit">targets flagged</div>
+              </div>
+            </div>
+            <div class="note-box" id="noteBox"></div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <span class="section-label">Toxicity Predictions</span>
+          <span class="section-line"></span>
+          <span class="section-count">12 Tox21 targets</span>
+        </div>
+        <div class="predictions-grid" id="predsGrid"></div>
+
+        <div class="explain-section" id="explainSection">
+          <div class="explain-header">
+            <span class="section-label">White-box Explanation</span>
+            <span class="explain-tag"><span class="pulse-dot"></span>Gradient Saliency · Llama 4 Scout</span>
+          </div>
+          <div class="explain-spinner" id="explainSpinner"></div>
+          <div id="explainContent"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer-bar">
+      <p><span class="footer-vine">🌿</span> MolTox <span class="footer-accent">//</span> Cheminformatics <span class="footer-accent">//</span> Drug Discovery & Analysis</p>
+    </footer>
   </div>
 
   <script>
+    // ── FLOATING SPORES / POLLEN ANIMATION ──
+    const canvas = document.getElementById('sporeCanvas');
+    const ctx = canvas.getContext('2d');
+    let spores = [];
+    let mouseX = 0, mouseY = 0;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    class Spore {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.4;
+        this.vy = (Math.random() - 0.5) * 0.4 - 0.15;
+        this.size = Math.random() * 2.5 + 0.8;
+        this.opacity = Math.random() * 0.25 + 0.08;
+        this.color = ['125, 216, 125', '92, 212, 200', '212, 168, 92', '200, 160, 232'][Math.floor(Math.random() * 4)];
+        this.wobble = Math.random() * Math.PI * 2;
+        this.wobbleSpeed = Math.random() * 0.02 + 0.01;
+        this.wobbleAmp = Math.random() * 0.3 + 0.1;
+      }
+      update() {
+        this.wobble += this.wobbleSpeed;
+        this.x += this.vx + Math.sin(this.wobble) * this.wobbleAmp;
+        this.y += this.vy;
+        if (this.y < -10) {
+          this.y = canvas.height + 10;
+          this.x = Math.random() * canvas.width;
+        }
+        if (this.x < -10) this.x = canvas.width + 10;
+        if (this.x > canvas.width + 10) this.x = -10;
+        const dx = mouseX - this.x;
+        const dy = mouseY - this.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 180) {
+          this.x -= dx * 0.003;
+          this.y -= dy * 0.003;
+        }
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${this.color}, ${this.opacity})`;
+        ctx.fill();
+        // pollen texture
+        ctx.beginPath();
+        ctx.arc(this.x - this.size*0.3, this.y - this.size*0.3, this.size * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${this.color}, ${this.opacity * 0.5})`;
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < 80; i++) spores.push(new Spore());
+
+    function drawVineConnections() {
+      for (let i = 0; i < spores.length; i++) {
+        for (let j = i + 1; j < spores.length; j++) {
+          const dx = spores[i].x - spores[j].x;
+          const dy = spores[i].y - spores[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 100) {
+            ctx.beginPath();
+            ctx.moveTo(spores[i].x, spores[i].y);
+            ctx.lineTo(spores[j].x, spores[j].y);
+            ctx.strokeStyle = `rgba(125, 216, 125, ${0.03 * (1 - dist/100)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function animateSpores() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      spores.forEach(s => { s.update(); s.draw(); });
+      drawVineConnections();
+      requestAnimationFrame(animateSpores);
+    }
+    animateSpores();
+
+    document.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    // ── APP LOGIC ──
     const API = 'http://localhost:8000';
     let lastQuery = null;
     let lastInputType = null;
@@ -777,7 +1629,7 @@
       hide('results');
       hide('errorBox');
       hideExplain();
-      show('spinner');
+      show('spinnerWrap');
       document.getElementById('predictBtn').disabled = true;
       document.getElementById('explainBtn').disabled = true;
 
@@ -797,10 +1649,10 @@
         document.getElementById('explainBtn').disabled = false;
 
       } catch (e) {
-        document.getElementById('errorBox').textContent = e.message;
+        document.getElementById('errorText').textContent = e.message;
         show('errorBox');
       } finally {
-        hide('spinner');
+        hide('spinnerWrap');
         document.getElementById('predictBtn').disabled = false;
       }
     }
@@ -827,7 +1679,7 @@
 
       } catch (e) {
         document.getElementById('explainContent').innerHTML =
-          `<div class="error" style="display:block">${e.message}</div>`;
+          `<div class="error-box" style="display:block">${e.message}</div>`;
       } finally {
         hide('explainSpinner');
         document.getElementById('explainBtn').disabled = false;
@@ -879,7 +1731,6 @@
       const safeList = exps.filter(e => e.probability < 0.35);
       const sorted = [...exps].sort((a, b) => b.probability - a.probability);
 
-      // group frequency across flagged targets
       const groupFreq = {};
       for (const e of flagged) {
         for (const g of (e.matched_functional_groups || [])) {
@@ -891,135 +1742,141 @@
       const toxicCount = exps.filter(e => e.toxic).length;
       const highest = sorted[0];
 
-      // atom saliency top 10
       const atomScores = data.atom_saliency_scores || {};
       const atomEntries = Object.entries(atomScores)
         .map(([i, v]) => ({ idx: parseInt(i), symbol: v.symbol, score: v.saliency_score }))
         .sort((a, b) => b.score - a.score).slice(0, 10);
       const maxScore = atomEntries[0]?.score || 1;
 
-      const TOXIC = '#f85149';
-      const SAFE = '#3fb950';
-      const WARN = '#d29922';
-      const SAL = '#bc8cff';
+      const TOXIC = '#e85d5d';
+      const SAFE = '#5ce8a0';
+      const WARN = '#e8c85c';
+      const SAL = '#c8a0e8';
 
-      // stat cards
       const statsHtml = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem;">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
-          <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">targets flagged</div>
-          <div style="font-size:26px;font-weight:600;color:${TOXIC};font-family:'IBM Plex Mono',monospace">${toxicCount}<span style="font-size:14px;color:var(--muted)"> / 12</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.25rem;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:1.1rem;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${TOXIC},transparent);opacity:0.5;"></div>
+          <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">targets flagged</div>
+          <div style="font-size:30px;font-weight:700;color:${TOXIC};font-family:'Playfair Display',serif;text-shadow:0 0 15px var(--toxic-glow)">${toxicCount}<span style="font-size:14px;color:var(--text-faint);font-family:'Space Mono',monospace"> / 12</span></div>
         </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
-          <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">highest risk</div>
-          <div style="font-size:14px;font-weight:600;color:${TOXIC};font-family:'IBM Plex Mono',monospace;margin-bottom:2px">${highest?.target || '—'}</div>
-          <div style="font-size:20px;font-weight:600;color:var(--text);font-family:'IBM Plex Mono',monospace">${highest ? (highest.probability * 100).toFixed(1) + '%' : '—'}</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:1.1rem;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${TOXIC},transparent);opacity:0.5;"></div>
+          <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">highest risk</div>
+          <div style="font-size:13px;font-weight:700;color:${TOXIC};font-family:'Space Mono',monospace;margin-bottom:4px">${highest?.target || '—'}</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);font-family:'Playfair Display',serif">${highest ? (highest.probability * 100).toFixed(1) + '%' : '—'}</div>
         </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
-          <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">top structural driver</div>
-          <div style="font-size:13px;font-weight:500;color:${SAL};line-height:1.3">${topDriver ? topDriver[0] : 'none detected'}</div>
-          ${topDriver ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">across ${topDriver[1]} targets</div>` : ''}
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:1.1rem;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${SAL},transparent);opacity:0.5;"></div>
+          <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">top structural driver</div>
+          <div style="font-size:13px;font-weight:600;color:${SAL};line-height:1.3;font-family:'Space Mono',monospace">${topDriver ? topDriver[0] : 'none detected'}</div>
+          ${topDriver ? `<div style="font-size:10px;color:var(--text-faint);margin-top:4px;font-family:'Space Mono',monospace">across ${topDriver[1]} targets</div>` : ''}
         </div>
       </div>`;
 
-      // probability bars
       const probBars = sorted.map(e => {
         const color = e.probability >= 0.5 ? TOXIC : e.probability >= 0.35 ? WARN : SAFE;
         return `
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);min-width:88px;text-align:right">${e.target}</span>
-          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:3px;height:13px;overflow:hidden;">
-            <div style="width:${(e.probability * 100).toFixed(1)}%;height:100%;background:${color};border-radius:3px;"></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text-faint);min-width:100px;text-align:right">${e.target}</span>
+          <div style="flex:1;background:rgba(255,255,255,0.03);border-radius:6px;height:14px;overflow:hidden;position:relative;">
+            <div style="width:${(e.probability * 100).toFixed(1)}%;height:100%;background:${color};border-radius:6px;box-shadow:0 0 8px ${color}30;"></div>
           </div>
-          <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:${color};min-width:40px">${(e.probability * 100).toFixed(1)}%</span>
+          <span style="font-size:11px;font-family:'Space Mono',monospace;color:${color};min-width:44px;font-weight:700">${(e.probability * 100).toFixed(1)}%</span>
         </div>`;
       }).join('');
 
-      // group frequency chips
       const groupChips = groupsSorted.length
         ? groupsSorted.map(([name, count]) => {
           const alpha = (0.08 + Math.min(count / 12, 1) * 0.22).toFixed(2);
-          return `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(188,140,255,${alpha});border:1px solid rgba(188,140,255,0.35);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text)">
+          return `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(200,160,232,${alpha});border:1px solid rgba(200,160,232,0.3);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--text);font-family:'Space Mono',monospace;">
             ${name}
-            <span style="background:rgba(188,140,255,0.5);border-radius:10px;padding:0 5px;font-size:10px;font-weight:600">${count}</span>
+            <span style="background:rgba(200,160,232,0.4);border-radius:10px;padding:0 6px;font-size:10px;font-weight:700">${count}</span>
           </span>`;
         }).join('')
-        : '<span style="font-size:12px;color:var(--muted)">No named groups in flagged region</span>';
+        : '<span style="font-size:12px;color:var(--text-faint)">No named groups in flagged region</span>';
 
-      // atom saliency bars
       const atomBarsHtml = atomEntries.map(a => `
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);min-width:38px;text-align:right">${a.symbol}${a.idx}</span>
-        <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:3px;height:9px;overflow:hidden;">
-          <div style="width:${(a.score / maxScore * 100).toFixed(1)}%;height:100%;background:${SAL};border-radius:3px;"></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text-faint);min-width:44px;text-align:right">${a.symbol}${a.idx}</span>
+        <div style="flex:1;background:rgba(255,255,255,0.03);border-radius:6px;height:10px;overflow:hidden;">
+          <div style="width:${(a.score / maxScore * 100).toFixed(1)}%;height:100%;background:${SAL};border-radius:6px;box-shadow:0 0 6px ${SAL}30;"></div>
         </div>
-        <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:${SAL};min-width:44px">${a.score.toFixed(3)}</span>
+        <span style="font-size:11px;font-family:'Space Mono',monospace;color:${SAL};min-width:50px">${a.score.toFixed(3)}</span>
       </div>`).join('');
 
-      // per-target cards
       const targetCardsHtml = flagged.map(e => {
         const color = e.probability >= 0.5 ? TOXIC : WARN;
         const topGroups = (e.matched_functional_groups || []).slice(0, 3);
         const groupPills = topGroups.length
-          ? topGroups.map(g => `<span style="font-size:10px;background:rgba(188,140,255,0.12);border:1px solid rgba(188,140,255,0.3);border-radius:12px;padding:2px 7px;color:var(--explain)">${g.name}</span>`).join('')
-          : `<span style="font-size:10px;color:var(--muted);font-style:italic">no groups matched</span>`;
+          ? topGroups.map(g => `<span style="font-size:10px;background:rgba(200,160,232,0.1);border:1px solid rgba(200,160,232,0.25);border-radius:12px;padding:3px 8px;color:var(--explain);font-family:'Space Mono',monospace;">${g.name}</span>`).join('')
+          : `<span style="font-size:10px;color:var(--text-faint);font-style:italic">no groups matched</span>`;
         return `
-        <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:6px;padding:0.75rem;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)">${e.target}</span>
-            <span style="font-size:11px;color:${color};font-weight:600">${(e.probability * 100).toFixed(1)}%</span>
+        <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:10px;padding:0.9rem;transition:all 0.35s;" onmouseover="this.style.borderColor='var(--border-glow)';this.style.transform='translateX(5px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateX(0)'">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:var(--text)">${e.target}</span>
+            <span style="font-size:12px;color:${color};font-weight:700;font-family:'Playfair Display',serif">${(e.probability * 100).toFixed(1)}%</span>
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.4">${e.description}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:3px;">${groupPills}</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;line-height:1.4">${e.description}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">${groupPills}</div>
         </div>`;
       }).join('');
 
       const safePills = safeList.map(e =>
-        `<span style="font-size:11px;font-family:'IBM Plex Mono',monospace;background:rgba(63,185,80,0.07);border:1px solid rgba(63,185,80,0.2);border-radius:12px;padding:2px 8px;color:var(--muted)">${e.target}</span>`
+        `<span style="font-size:11px;font-family:'Space Mono',monospace;background:rgba(92,232,160,0.06);border:1px solid rgba(92,232,160,0.12);border-radius:12px;padding:3px 10px;color:var(--text-faint)">${e.target}</span>`
       ).join('');
 
       document.getElementById('explainContent').innerHTML = `
-      <div style="display:grid;grid-template-columns:180px 1fr;gap:1.25rem;margin-bottom:1.25rem;">
-        <img style="width:100%;aspect-ratio:1;border-radius:6px;border:1px solid rgba(188,140,255,0.25);background:#ffffff08;object-fit:contain" src="${imgSrc}" alt="Highlighted molecule" />
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+        <div style="position:relative;width:100%;aspect-ratio:1;border-radius:12px;border:1px solid rgba(200,160,232,0.2);background:var(--bg);overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          <img style="width:88%;height:88%;object-fit:contain;filter:drop-shadow(0 0 10px rgba(200,160,232,0.08))" src="${imgSrc}" alt="Highlighted molecule" />
+          <div style="position:absolute;inset:8px;border:1px dashed rgba(200,160,232,0.12);border-radius:10px;pointer-events:none;"></div>
+        </div>
         <div>
           ${statsHtml}
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;">
-            <div class="section-label" style="margin-bottom:0.6rem">Functional groups · frequency across flagged targets</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;">
+            <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:0.75rem">Functional groups · frequency across flagged targets</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;">${groupChips}</div>
           </div>
         </div>
       </div>
 
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;margin-bottom:1.25rem;">
-        <div class="section-label" style="margin-bottom:0.75rem">Toxicity probability — all 12 targets</div>
-        <div style="display:flex;flex-direction:column;gap:7px;">${probBars}</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1.25rem;">
+        <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:0.75rem">Toxicity probability — all 12 targets</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">${probBars}</div>
       </div>
 
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.85rem;margin-bottom:1.25rem;">
-        <div class="section-label" style="margin-bottom:0.75rem">Atom saliency — gradient × input scores</div>
-        <div style="display:flex;flex-direction:column;gap:5px;">${atomBarsHtml}</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1.25rem;">
+        <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:0.75rem">Atom saliency — gradient x input scores</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">${atomBarsHtml}</div>
       </div>
 
       ${flagged.length ? `
-        <div class="section-label" style="margin-bottom:0.6rem">Flagged targets — structural drivers</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:1.25rem;">${targetCardsHtml}</div>
+        <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:0.6rem">Flagged targets — structural drivers</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:1.25rem;">${targetCardsHtml}</div>
       ` : ''}
 
       ${safePills ? `
-        <div class="section-label" style="margin-bottom:0.5rem">Low-risk targets</div>
+        <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.12em;margin-bottom:0.5rem">Low-risk targets</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem;">${safePills}</div>
       ` : ''}
 
       ${data.narrative && !data.groq_error ? `
-        <details style="background:var(--surface);border:1px solid rgba(188,140,255,0.2);border-radius:8px;padding:1rem;">
-          <summary style="cursor:pointer;font-size:12px;color:var(--explain);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.08em;list-style:none;">▶ Full cheminformatics report · Llama 4 Scout</summary>
-          <div style="margin-top:0.85rem;font-size:0.84rem;line-height:1.75;color:var(--text)">$<div class="narrative-text">${marked.parse(data.narrative)}</div></div>
+        <details style="background:var(--surface);border:1px solid rgba(200,160,232,0.15);border-radius:12px;padding:1.1rem;cursor:pointer;">
+          <summary style="font-size:13px;color:var(--explain);font-family:'Cormorant Garamond',serif;font-weight:600;font-style:italic;letter-spacing:.06em;list-style:none;display:flex;align-items:center;gap:0.6rem;">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--explain);box-shadow:0 0 10px var(--explain-glow);animation:sporePulse 2s ease-in-out infinite;"></span>
+            Full cheminformatics report · Llama 4 Scout
+          </summary>
+          <div style="margin-top:1rem;font-size:0.88rem;line-height:1.85;color:var(--text);font-family:'Inter',sans-serif;">
+            <div class="narrative-text">${marked.parse(data.narrative)}</div>
+          </div>
         </details>
       ` : ''}
 
       <div class="method-note" style="margin-top:1rem">${data.method_note}</div>
     `;
     }
+
     document.getElementById('query').addEventListener('keydown', e => {
       if (e.key === 'Enter') predict();
     });
@@ -1030,5 +1887,4 @@
     });
   </script>
 </body>
-
 </html>
