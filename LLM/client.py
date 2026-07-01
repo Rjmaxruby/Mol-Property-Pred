@@ -21,7 +21,7 @@ def generate(prompt: str) -> str:
             }
         ],
         temperature=0.3,
-        max_tokens=800,
+        max_tokens=1500,
     )
 
     return response.choices[0].message.content.strip()
